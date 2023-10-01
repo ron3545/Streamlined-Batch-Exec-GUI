@@ -1,53 +1,184 @@
-#include "imgui.h"
-#include "imgui_internal.h"
-#include "imgui_impl_dx9.h"
-#include "imgui_impl_win32.h"
-#include <d3d9.h>
+#pragma warning(disable : 4244)
+#pragma warning(disable : 4083)
+#pragma warning(disable : 4305)
+#pragma warning(disable : 4715)
+
+#ifndef IMGUI_DEFINE_MATH_OPERATORS
+#define IMGUI_DEFINE_MATH_OPERATORS
+#endif
+#include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
+#include "imgui/imgui_impl_opengl3.h"
+#include "imgui/imgui_impl_win32.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#ifndef WIN32_LEAN_AND_MEAN
+#   define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <stdint.h>
+#include <windows.h>
+#include <shobjidl.h>
+#include <GL/GL.h>
 #include <tchar.h>
+
+#include <fstream>
+#include <stdlib.h>
+#include <string>
+
+#include <sstream>
+#include <shlobj.h>
+#include <sstream>
+#include <locale>
+
+using namespace std;
 
 constexpr int WIDTH = 1000;
 constexpr int HEIGHT = 600;
 
-// Data
-static LPDIRECT3D9              g_pD3D = nullptr;
-static LPDIRECT3DDEVICE9        g_pd3dDevice = nullptr;
-static UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
-static D3DPRESENT_PARAMETERS    g_d3dpp = {};
 
-// Forward declarations of helper functions
-bool CreateDeviceD3D(HWND hWnd);
-void CleanupDeviceD3D();
-void ResetDevice();
+bool Use_Darkmode = false;
 
+const wchar_t* GUI_TITLE = L"Empower Smart Deploy";
+//===================================Loaded Icons/images==========================================
+const char* GUI_ICON            = "../../../Utils/images/esd_logo_blue_N78_icon.ico";
+const char* welcome_image_path  = "../../../Utils/images/empower logo.jpg"; 
+const char* main_image_path     = "../../../Utils/images/ESD_LOGO_BLUE.jpg"; 
+
+//========================================Fonts===================================================
+const char* Title_Font1      = "../../../Utils/Fonts/LeagueGothic-Regular.otf";       const unsigned int Title_Font_pxlSize     = 88; 
+const char* Title_Font2      = "../../../Utils/Fonts/LeagueGothic-Regular.otf";       const unsigned int Title_Font_pxlSize2    = 55; 
+
+const char* Button_Font     = "../../../Utils/Fonts/SourceSansPro-Semibold.otf";      const unsigned int Button_Font_pxlSize    = 24;    
+const char* Text_Font_bld   = "../../../Utils/Fonts/SourceSansPro-SemiboldIt.otf";    const unsigned int Text_Bold_Font_pxlSize = 18;    
+const char* Text_Font       = "../../../Utils/Fonts/SourceSansPro-It.otf";            const unsigned int Text_Font_pxlSize      = 14;
+
+ImFont* ImGui_Title_Font    = nullptr;
+ImFont* ImGui_Title_Font2    = nullptr;
+ImFont* ImGui_Button_Font   = nullptr;
+ImFont* ImGui_Text_Font_bld = nullptr;
+ImFont* ImGui_Text_Font     = nullptr;
+
+//============================Buttons Names and Batch File Variables==============================
+const char* CSR_batchFile = " ";  const char* Button1 = "Check System for Requirements";
+const char* PSE_batchFile = " ";  const char* Button2 = "Prep System for Empower";
+const char* INO_batchFile = " ";  const char* Button3 = "Install .Net 3.5 Offline";
+const char* GVF_bathcFile = " ";  const char* Button4 = "Get Verify Files";
+const char* DLE_batchFile = " ";  const char* Button5 = "Download Empower";
+
+const char* CFU_batchFile = " ";  const char* Button6 = "Check for Updates";
+                                  const char* Exit_Button = "Exit";
+
+//===================================welcoming page control=======================================
+bool is_in_welcomePage = true;
+std::string installation_path; //you can use this to retrieve the specified path.
+
+const char* Welcome_Title_Header = "Waters";
+const char* Welcom_Title_Subheader = "THE SCIENCE OF WHAT'S POSSIBLE";
+//================================================================================================
+
+//===============================================Data=============================================
+struct WGL_WindowData { HDC hDC; };
+
+static HGLRC            g_hRC;
+static WGL_WindowData   g_MainWindow;
+static int              g_Width;
+static int              g_Height;
+//======================================Graphics Handlers=========================================
+
+bool CreateDeviceWGL(HWND hWnd, WGL_WindowData* data);
+void CleanupDeviceWGL(HWND hWnd, WGL_WindowData* data);
+void ResetDeviceWGL();
+bool LoadTextureFromFile(const char* filename, unsigned int* out_texture, int* out_width, int* out_height);
+
+//========================================Helper Functions========================================
 void ControlPanel();
 void CmdViewerPanel();
 void ButtonSpacerPadding(float x, float y);
 
+void WelcomePage(HWND hwnd);
+void PageControllerpanel(float width = 0);
+
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// Main code
+//===================================Support function for multi-viewports=========================
+static void Hook_Renderer_CreateWindow(ImGuiViewport* viewport)
+{
+    assert(viewport->RendererUserData == NULL);
+
+    WGL_WindowData* data = IM_NEW(WGL_WindowData);
+    CreateDeviceWGL((HWND)viewport->PlatformHandle, data);
+    viewport->RendererUserData = data;
+}
+
+static void Hook_Renderer_DestroyWindow(ImGuiViewport* viewport)
+{
+    if (viewport->RendererUserData != NULL)
+    {
+        WGL_WindowData* data = (WGL_WindowData*)viewport->RendererUserData;
+        CleanupDeviceWGL((HWND)viewport->PlatformHandle, data);
+        IM_DELETE(data);
+        viewport->RendererUserData = NULL;
+    }
+}
+
+static void Hook_Platform_RenderWindow(ImGuiViewport* viewport, void*)
+{
+    // Activate the platform window DC in the OpenGL rendering context
+    if (WGL_WindowData* data = (WGL_WindowData*)viewport->RendererUserData)
+        wglMakeCurrent(data->hDC, g_hRC);
+}
+
+static void Hook_Renderer_SwapBuffers(ImGuiViewport* viewport, void*)
+{
+    if (WGL_WindowData* data = (WGL_WindowData*)viewport->RendererUserData)
+        ::SwapBuffers(data->hDC);
+}
+//==================================================================================================
+
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, 
-            GetModuleHandle(nullptr), nullptr, 
-            nullptr, nullptr, nullptr, 
-            L"Empower Smart Deploy", nullptr };
-    
+    WNDCLASSEXW wc = { };
+    wc.cbSize           = sizeof(wc);
+    wc.style            = CS_CLASSDC;
+    wc.lpfnWndProc      = WndProc;
+    wc.cbClsExtra       = 0L;
+    wc.cbWndExtra       = 0L;
+    wc.hInstance        = hInstance;
+    wc.hIcon            = (HICON) LoadImage(NULL, GUI_ICON, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE | LR_SHARED);
+    wc.hCursor          = nullptr;
+    wc.hbrBackground    = nullptr;
+    wc.lpszMenuName     = nullptr;
+    wc.lpszClassName    = GUI_TITLE;
+    wc.hIconSm          = nullptr;
+
     ::RegisterClassExW(&wc);
 
-     HWND hwnd = ::CreateWindowW(wc.lpszClassName, 
-        L"Empower Smart Deploy", 
-        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX, 
-        100, 100, WIDTH, HEIGHT, 
-        nullptr, nullptr, 
-        wc.hInstance, nullptr);
+    HWND hwnd = ::CreateWindowW(
+        wc.lpszClassName, 
+        GUI_TITLE, 
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, 
+        100, 
+        100, 
+        WIDTH, 
+        HEIGHT, 
+        nullptr, 
+        nullptr, 
+        wc.hInstance, 
+        nullptr
+    );
     
-    if (!CreateDeviceD3D(hwnd))
+
+    if (!CreateDeviceWGL(hwnd, &g_MainWindow))
     {
-        CleanupDeviceD3D();
+        CleanupDeviceWGL(hwnd, &g_MainWindow);
+        ::DestroyWindow(hwnd);
         ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
         return 1;
     }
+    wglMakeCurrent(g_MainWindow.hDC, g_hRC);
 
     // Show the window
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
@@ -60,28 +191,31 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // Enable Docking
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       // Enable Multi-Viewport / Platform Windows
-    io.IniFilename = NULL;
-    //io.ConfigViewportsNoAutoMerge = true;
-    //io.ConfigViewportsNoTaskBarIcon = true;
+    io.IniFilename = NULL;  //prevents from saving the last states and position of each widgets
 
-    ImGui::StyleColorsDark();
+    ImGui_Button_Font   = io.Fonts->AddFontFromFileTTF(Button_Font  , Button_Font_pxlSize   ); //DEFAULT FONT
+    ImGui_Title_Font    = io.Fonts->AddFontFromFileTTF(Title_Font1  , Title_Font_pxlSize    ); 
+    ImGui_Title_Font2   = io.Fonts->AddFontFromFileTTF(Title_Font2  , Title_Font_pxlSize2   );
+    ImGui_Text_Font_bld = io.Fonts->AddFontFromFileTTF(Text_Font_bld, Text_Bold_Font_pxlSize);
+    ImGui_Text_Font     = io.Fonts->AddFontFromFileTTF(Text_Font    , Text_Font_pxlSize     );
+
+    if(Use_Darkmode)
+        ImGui::StyleColorsDark();
+    else
+        ImGui::StyleColorsLight();
 
     ImGuiStyle& style = ImGui::GetStyle();
     if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
     {
-        style.WindowRounding = 0.0f;
-        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+        style.WindowRounding = 0.3f;
+        style.Colors[ImGuiCol_WindowBg].w = 1.3f;
     }
 
     // Setup Platform/Renderer backends
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX9_Init(g_pd3dDevice);
+    ImGui_ImplWin32_InitForOpenGL(hwnd);
+    IM_ASSERT(ImGui_ImplOpenGL3_Init());
 
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
     bool done = false;
     while (!done)
     {
@@ -96,18 +230,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         if (done)
             break;
 
-        if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
-        {
-            g_d3dpp.BackBufferWidth = g_ResizeWidth;
-            g_d3dpp.BackBufferHeight = g_ResizeHeight;
-            g_ResizeWidth = g_ResizeHeight = 0;
-            ResetDevice();
-        }
-
-        ImGui_ImplDX9_NewFrame();
+        ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
+        if(!is_in_welcomePage)
         {
             static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
 
@@ -140,7 +267,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
             {
                 ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
                 const ImVec2 dockspace_size = ImGui::GetContentRegionAvail();
-                ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+                ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags | ImGuiDockNodeFlags_NoWindowMenuButton);
 
                 static auto first_time = true;
                 if (first_time)
@@ -154,7 +281,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
                     // split the dockspace into 2 nodes -- DockBuilderSplitNode takes in the following args in the following order
                     //   window ID to split, direction, fraction (between 0 and 1), the final two setting let's us choose which id we want (which ever one we DON'T set as NULL, will be returned by the function)
                     //                                                              out_id_at_dir is the id of the node in the direction we specified earlier, out_id_at_opposite_dir is in the opposite direction
-                    ImGuiID dock_id_right = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Right, 0.2f, nullptr, &dockspace_id);
+                    ImGuiID dock_id_right = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Right, 0.3f, nullptr, &dockspace_id);
                     ImGuiID dock_id_left = dockspace_id;
 
                     // we now dock our windows into the docking node we made above
@@ -166,52 +293,49 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
             ImGui::End();
 
-            ImGui::Begin("Controll Panel", nullptr, ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+            ImGui::Begin("CMD viewport");
+            {
+
+            }
+            ImGui::End();
+
+            ImGuiWindowClass window_class;
+            window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingOverMe; 
+            ImGui::SetNextWindowClass(&window_class);
+            ImGui::Begin("Controll Panel", nullptr);
             {
                 ControlPanel();
             }
             ImGui::End();
-
-            ImGui::Begin("CMD viewport", nullptr, ImGuiWindowFlags_NoCollapse);
-            {
-
-            }
-            ImGui::End();
         }
+        else
+            WelcomePage(hwnd);
 
-        // Rendering
-        ImGui::EndFrame();
-        g_pd3dDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
-        g_pd3dDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-        g_pd3dDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-        D3DCOLOR clear_col_dx = D3DCOLOR_RGBA((int)(clear_color.x*clear_color.w*255.0f), (int)(clear_color.y*clear_color.w*255.0f), (int)(clear_color.z*clear_color.w*255.0f), (int)(clear_color.w*255.0f));
-        g_pd3dDevice->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, clear_col_dx, 1.0f, 0);
-        if (g_pd3dDevice->BeginScene() >= 0)
-        {
-            ImGui::Render();
-            ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
-            g_pd3dDevice->EndScene();
-        }
+        //render frontend window system
+        ImGui::Render();
+        glViewport(0, 0, g_Width, g_Height);
+        glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        // Update and Render additional Platform Windows
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
         {
             ImGui::UpdatePlatformWindows();
             ImGui::RenderPlatformWindowsDefault();
+
+            
+            wglMakeCurrent(g_MainWindow.hDC, g_hRC);
         }
 
-        HRESULT result = g_pd3dDevice->Present(nullptr, nullptr, nullptr, nullptr);
-
-        // Handle loss of D3D9 device
-        if (result == D3DERR_DEVICELOST && g_pd3dDevice->TestCooperativeLevel() == D3DERR_DEVICENOTRESET)
-            ResetDevice();
+        ::SwapBuffers(g_MainWindow.hDC);
     }
 
-    ImGui_ImplDX9_Shutdown();
+    ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
 
-    CleanupDeviceD3D();
+    CleanupDeviceWGL(hwnd, &g_MainWindow);
+    wglDeleteContext(g_hRC);
     ::DestroyWindow(hwnd);
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
 
@@ -219,44 +343,34 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 }
 
 // Helper functions
-bool CreateDeviceD3D(HWND hWnd)
+bool CreateDeviceWGL(HWND hWnd, WGL_WindowData* data)
 {
-    if ((g_pD3D = Direct3DCreate9(D3D_SDK_VERSION)) == nullptr)
-        return false;
+    HDC hDc = ::GetDC(hWnd);
+    PIXELFORMATDESCRIPTOR pfd = { 0 };
+    pfd.nSize = sizeof(pfd);
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 32;
 
-    // Create the D3DDevice
-    ZeroMemory(&g_d3dpp, sizeof(g_d3dpp));
-    g_d3dpp.Windowed = TRUE;
-    g_d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
-    g_d3dpp.BackBufferFormat = D3DFMT_UNKNOWN; // Need to use an explicit format with alpha if needing per-pixel alpha composition.
-    g_d3dpp.EnableAutoDepthStencil = TRUE;
-    g_d3dpp.AutoDepthStencilFormat = D3DFMT_D16;
-    g_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_ONE;           // Present with vsync
-    //g_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;   // Present without vsync, maximum unthrottled framerate
-    if (g_pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, &g_d3dpp, &g_pd3dDevice) < 0)
+    const int pf = ::ChoosePixelFormat(hDc, &pfd);
+    if (pf == 0)
         return false;
+    if (::SetPixelFormat(hDc, pf, &pfd) == FALSE)
+        return false;
+    ::ReleaseDC(hWnd, hDc);
 
+    data->hDC = ::GetDC(hWnd);
+    if (!g_hRC)
+        g_hRC = wglCreateContext(data->hDC);
     return true;
 }
 
-void CleanupDeviceD3D()
+void CleanupDeviceWGL(HWND hWnd, WGL_WindowData* data)
 {
-    if (g_pd3dDevice) { g_pd3dDevice->Release(); g_pd3dDevice = nullptr; }
-    if (g_pD3D) { g_pD3D->Release(); g_pD3D = nullptr; }
+    wglMakeCurrent(NULL, NULL);
+    ::ReleaseDC(hWnd, data->hDC);
 }
-
-void ResetDevice()
-{
-    ImGui_ImplDX9_InvalidateDeviceObjects();
-    HRESULT hr = g_pd3dDevice->Reset(&g_d3dpp);
-    if (hr == D3DERR_INVALIDCALL)
-        IM_ASSERT(0);
-    ImGui_ImplDX9_CreateDeviceObjects();
-}
-
-#ifndef WM_DPICHANGED
-#define WM_DPICHANGED 0x02E0 // From Windows SDK 8.1+ headers
-#endif
 
 // Forward declare message handler from imgui_impl_win32.cpp
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -269,10 +383,11 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg)
     {
     case WM_SIZE:
-        if (wParam == SIZE_MINIMIZED)
-            return 0;
-        g_ResizeWidth = (UINT)LOWORD(lParam); // Queue resize
-        g_ResizeHeight = (UINT)HIWORD(lParam);
+        if (wParam != SIZE_MINIMIZED)
+        {
+            g_Width = LOWORD(lParam);
+            g_Height = HIWORD(lParam);
+        }
         return 0;
     case WM_SYSCOMMAND:
         if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
@@ -281,56 +396,297 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
         ::PostQuitMessage(0);
         return 0;
-    case WM_DPICHANGED:
-        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DpiEnableScaleViewports)
-        {
-            const RECT* suggested_rect = (RECT*)lParam;
-            ::SetWindowPos(hWnd, nullptr, suggested_rect->left, suggested_rect->top, suggested_rect->right - suggested_rect->left, suggested_rect->bottom - suggested_rect->top, SWP_NOZORDER | SWP_NOACTIVATE);
-        }
-        break;
     }
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
 void ControlPanel()
 {
-    const ImVec2 ButtonSize =ImVec2(230, 40); 
+    const float pan_col1 = ImGui::GetColumnWidth() * 0.08;
+    const ImVec2 ButtonSize =ImVec2(pan_col1 + 228.57, 50); 
 
-    ButtonSpacerPadding(20, 13);
-    if(ImGui::Button("Check System for Requirements", ButtonSize))
+    ImGui::Columns(2, "MyColumns", false);
+    ButtonSpacerPadding(pan_col1, 15);
+    if(ImGui::Button(Button1, ButtonSize))
     {
 
     }
 
-    ButtonSpacerPadding(20,5);
-    if(ImGui::Button("Prep System for Empower", ButtonSize))
+    ButtonSpacerPadding(pan_col1,7);
+    if(ImGui::Button(Button2, ButtonSize))
     {
 
     }
 
-    ButtonSpacerPadding(20,5);
-    if(ImGui::Button("Install .NET 3.5 Offline", ButtonSize))
+    ButtonSpacerPadding(pan_col1,7);
+    if(ImGui::Button(Button3, ButtonSize))
     {
 
     }
 
 
-    ButtonSpacerPadding(20,50);
-    if(ImGui::Button("Get Verify Files", ButtonSize))
+    ButtonSpacerPadding(pan_col1,74);
+    if(ImGui::Button(Button4, ButtonSize))
     {
 
     }
 
-    ButtonSpacerPadding(20,5);
-    if(ImGui::Button("Download Empower", ButtonSize))
+    //download
+    ButtonSpacerPadding(pan_col1,7);
+    if(ImGui::Button(Button5, ButtonSize))
     {
 
     }
-}
+
+    ImGui::NextColumn();
+    
+        int image_width = 0;
+        int image_height = 0;
+        GLuint image_texture = 0;
+
+        bool load_success = LoadTextureFromFile(main_image_path, &image_texture, &image_width, &image_height);
+        IM_ASSERT(load_success);
+
+        const float pan_col2 = ImGui::GetColumnWidth() * 0.08;
+        ButtonSpacerPadding(pan_col2 + 2, 15);
+        ImGui::Image((void*)(intptr_t)image_texture, ImVec2(pan_col1 + 228.57, image_height * 0.74), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), Use_Darkmode? ImVec4(255, 255, 255, 255) : ImVec4(0, 0, 0, 255));
+
+        ButtonSpacerPadding(pan_col2, 31);
+        if(ImGui::Button(Button6, ButtonSize))
+        {
+
+        }
+        ButtonSpacerPadding(pan_col2, 7);
+        if(ImGui::Button(Exit_Button, ButtonSize))
+        {
+
+        }
+    
+    ImGui::Columns(1);
+
+    PageControllerpanel(pan_col2);
+    
+}   
 
 void ButtonSpacerPadding(float x, float y)
 {   
     ImGui::Dummy(ImVec2(0, y));
     ImGui::Dummy(ImVec2(x, 0));
     ImGui::SameLine();
+}
+
+/*
+int CALLBACK BrowseForFolderCallback(HWND hwnd,UINT uMsg,LPARAM lp, LPARAM pData)
+{
+    char szPath[MAX_PATH];
+
+    switch(uMsg)
+    {
+        case BFFM_INITIALIZED:
+            SendMessage(hwnd, BFFM_SETSELECTION, TRUE, pData);
+            break;
+
+        case BFFM_SELCHANGED: 
+            if (SHGetPathFromIDList((LPITEMIDLIST) lp ,szPath)) 
+            {
+                SendMessage(hwnd, BFFM_SETSTATUSTEXT,0,(LPARAM)szPath); 
+
+            }
+            break;
+    }
+
+    return 0;
+}
+
+BOOL BrowseFolders(HWND hwnd, LPSTR lpszFolder, LPSTR lpszTitle)
+{
+    BROWSEINFO bi;
+    char szPath[MAX_PATH + 1];
+    LPITEMIDLIST pidl;
+    BOOL bResult = FALSE;
+
+    LPMALLOC pMalloc;
+
+    if (SUCCEEDED(SHGetMalloc(&pMalloc))) 
+    {
+        bi.hwndOwner = hwnd;
+        bi.pidlRoot = NULL;
+        bi.pszDisplayName = NULL;
+        bi.lpszTitle = lpszTitle;
+        bi.ulFlags = BIF_STATUSTEXT; //BIF_EDITBOX 
+        bi.lpfn = BrowseForFolderCallback;
+        bi.lParam = (LPARAM)lpszFolder;
+        
+        pidl = SHBrowseForFolder(&bi);
+        if (pidl)
+        {
+            if (SHGetPathFromIDList(pidl,szPath)) 
+            {
+                bResult = TRUE;
+                strcpy(lpszFolder, szPath);
+            }
+
+           pMalloc->Free(pidl);
+           pMalloc->Release();
+                        
+        }
+    }
+
+    return bResult;
+}
+
+*/
+
+bool FileButton(HWND hwnd, std::string& file_path, const ImVec2& size_arg, const char* label = "File Button")
+{   
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window->SkipItems)
+        return false;
+
+    ImGuiContext& g = *GImGui;
+    const ImGuiStyle& style = g.Style;
+    const ImGuiID id = window->GetID(label);
+
+
+    const char* default_path = "C:\\";
+    const ImVec2 label_size = ImGui::CalcTextSize(default_path, NULL, true);
+    const ImVec2 frame_size = ImGui::CalcItemSize(size_arg, ImGui::CalcItemWidth(),  label_size.y + style.FramePadding.y * 2.0f); // Arbitrary default of 8 lines high for multi-line
+    const ImVec2 total_size = ImVec2(frame_size.x + (label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 2.0f), frame_size.y);
+
+    ImGuiButtonFlags flags = ImGuiButtonFlags_MouseButtonLeft;
+    ImVec2 pos = window->DC.CursorPos;
+    if ((flags & ImGuiButtonFlags_AlignTextBaseLine) && style.FramePadding.y < window->DC.CurrLineTextBaseOffset) // Try to vertically align buttons that are smaller/have no padding so that text baseline matches (bit hacky, since it shouldn't be a flag)
+        pos.y += window->DC.CurrLineTextBaseOffset - style.FramePadding.y;
+    ImVec2 size = ImGui::CalcItemSize(size_arg, label_size.x + style.FramePadding.x * 2.0f, label_size.y + style.FramePadding.y * 2.0f);
+
+    const ImRect frame_bb(window->DC.CursorPos, window->DC.CursorPos + frame_size);
+    const ImRect total_bb(frame_bb.Min, frame_bb.Min + total_size);
+
+    bool hovered, held;
+    bool pressed = ImGui::ButtonBehavior(frame_bb, id, &hovered, &held, flags);
+
+    ImDrawList* draw_list = ImGui::GetForegroundDrawList();
+    draw_list->AddRect(frame_bb.Min, frame_bb.Max, ImGui::GetColorU32(IM_COL32(0, 0, 0, 255))); 
+    ImGui::RenderTextClipped(frame_bb.Min, frame_bb.Max, default_path, NULL, &label_size, ImVec2(0.07, 0.5), &frame_bb);
+
+    if(pressed)
+    {       
+         //BrowseFolders(hwnd, _T(default_path), _T("Choose Installation Folder"));
+    }
+}
+
+void WelcomePage(HWND hwnd)
+{   
+    static ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollWithMouse;
+
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
+
+    ImGui::Begin("Welcome Page", nullptr, flags);
+    {   
+        ImGui::Columns(2, "FrontColmns", false);
+        {
+            int image_width = 0;
+            int image_height = 0;
+            GLuint image_texture = 0;
+
+            bool load_success = LoadTextureFromFile(welcome_image_path, &image_texture, &image_width, &image_height);
+            IM_ASSERT(load_success);
+
+            image_width = (image_width * 0.85) + 4;
+            image_height += 100;
+
+            const float pan_col2 = ImGui::GetWindowWidth() * 0.07;
+            ButtonSpacerPadding(pan_col2 + 2, 15);
+            ImGui::Image((void*)(intptr_t)image_texture, ImVec2(image_width, image_height), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), Use_Darkmode? ImVec4(255, 255, 255, 255) : ImVec4(0, 0, 0, 255));
+
+            ImGui::SetColumnWidth(-1, image_width + 140);
+        }
+        ImGui::NextColumn();
+        {
+            const float center = ImGui::GetColumnWidth() / 2;
+
+            ImGui::Indent(center - 80);
+            ImGui::PushFont(ImGui_Title_Font);
+                ImGui::Text(Welcome_Title_Header);
+            ImGui::PopFont();
+
+            ImGui::Unindent(147);
+            ImGui::PushFont(ImGui_Title_Font2);
+                 ImGui::Text(Welcom_Title_Subheader);
+            ImGui::PopFont();
+
+            ButtonSpacerPadding(0,100);
+            ImGui::Unindent(30);
+            FileButton( hwnd, installation_path, ImVec2(ImGui::GetColumnWidth() - 100, 40));
+        }
+        ImGui::Columns(1);
+
+        PageControllerpanel();
+    }
+    ImGui::End();
+}
+
+void PageControllerpanel(float width)
+{   
+    const ImVec2 ButtonSize =ImVec2(110, 40); 
+
+    ButtonSpacerPadding(0, 30);
+    ImGui::Separator();
+
+    ButtonSpacerPadding(ImGui::GetWindowWidth() * 0.07, 15);
+    if(ImGui::Button("Cancel",ButtonSize))
+        ::PostQuitMessage(0);
+
+    const float seperation = ( is_in_welcomePage ? (ImGui::GetWindowWidth() * 0.584) + 100 : (ImGui::GetWindowWidth()  * 0.584) + width);
+    ImGui::BeginDisabled(is_in_welcomePage);
+        ImGui::SameLine(seperation); 
+        if(ImGui::Button("Previous",ButtonSize))
+        {
+            is_in_welcomePage = true;
+        }   
+    ImGui::EndDisabled();
+
+    ImGui::BeginDisabled(!is_in_welcomePage);
+        ImGui::SameLine(seperation + 122); 
+        if(ImGui::Button("Next",ButtonSize))
+        {
+            is_in_welcomePage = false;
+        }
+    ImGui::EndDisabled();
+
+    ImGui::Columns(1);
+}
+
+#define GL_CLAMP_TO_EDGE 0x812F
+bool LoadTextureFromFile(const char* filename, unsigned int* out_texture, int* out_width, int* out_height)
+{
+    // Load from file
+    int image_width = 0;
+    int image_height = 0;
+    unsigned char* image_data = stbi_load(filename, &image_width, &image_height, NULL, 4);
+    if (image_data == NULL)
+        return false;
+
+    // Create a OpenGL texture identifier
+    GLuint image_texture;
+    glGenTextures(1, &image_texture);
+    glBindTexture(GL_TEXTURE_2D, image_texture);
+
+    // Setup filtering parameters for display
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // This is required on WebGL for non power-of-two textures
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Same
+
+    // Upload pixels into texture
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+    stbi_image_free(image_data);
+
+    *out_texture = image_texture;
+    *out_width = image_width;
+    *out_height = image_height;
+
+    return true;
 }
