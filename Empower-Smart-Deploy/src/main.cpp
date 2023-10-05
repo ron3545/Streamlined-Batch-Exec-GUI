@@ -1,13 +1,17 @@
-#pragma warning(disable : 4244)
-#pragma warning(disable : 4083)
-#pragma warning(disable : 4305)
-#pragma warning(disable : 4715)
+#pragma warning(disable : 4244) //
+#pragma warning(disable : 4083)     //
+#pragma warning(disable : 4305)         //
+#pragma warning(disable : 4715)             // Just a harmless warnings
+#pragma warning(disable : 4101)         //  
+#pragma warning(disable : 4267)     //
+#pragma warning(disable : 4996) //
 
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
+#include "imgui/imgui_stdlib.h"
 #include "imgui/imgui_impl_opengl3.h"
 #include "imgui/imgui_impl_win32.h"
 
@@ -24,7 +28,6 @@
 #include <GL/GL.h>
 #include <tchar.h>
 
-#include <fstream>
 #include <stdlib.h>
 #include <string>
 
@@ -32,6 +35,13 @@
 #include <shlobj.h>
 #include <sstream>
 #include <locale>
+#include <algorithm>
+
+#include <cstdlib> //std::system(const char*)
+#include <fstream>
+#include <sstream>
+#include <stdio.h>
+#include <cmath>
 
 using namespace std;
 
@@ -61,19 +71,28 @@ ImFont* ImGui_Button_Font   = nullptr;
 ImFont* ImGui_Text_Font_bld = nullptr;
 ImFont* ImGui_Text_Font     = nullptr;
 
-//============================Buttons Names and Batch File Variables==============================
-const char* CSR_batchFile = " ";  const char* Button1 = "Check System for Requirements";
-const char* PSE_batchFile = " ";  const char* Button2 = "Prep System for Empower";
-const char* INO_batchFile = " ";  const char* Button3 = "Install .Net 3.5 Offline";
-const char* GVF_bathcFile = " ";  const char* Button4 = "Get Verify Files";
-const char* DLE_batchFile = " ";  const char* Button5 = "Download Empower";
+//============================Buttons Names and Batch File Variables=================================
+const char* CSR_batchFile = "..\\..\\..\\Utils\\batch_files\\sample.bat";                                
+const char* PSE_batchFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
+const char* INO_batchFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
+const char* IGC_BatchFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
+const char* GVF_bathcFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
+const char* DLE_batchFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
+const char* CFU_batchFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
 
-const char* CFU_batchFile = " ";  const char* Button6 = "Check for Updates";
-                                  const char* Exit_Button = "Exit";
+const char* Button1 = "Check System for Requirements";
+const char* Button2 = "Prep System for Empower";
+const char* Button3 = "Install .Net 3.5 Offline";
+const char* Button4 = "Install Google Chrome";
+const char* Button5 = "Get Verify Files";
+const char* Button6 = "Download Empower";
+const char* Button7 = "Check for Updates";
+const char* Exit_Button = "Exit";                                                                                        
 
-//===================================welcoming page control=======================================
+std::string selected_bat_file; 
+//===================================welcoming page control=========================================
 bool is_in_welcomePage = true;
-std::string installation_path; //you can use this to retrieve the specified path.
+std::string installation_path = "C:\\"; //you can use this to retrieve the specified path.
 
 const char* Welcome_Title_Header = "Waters";
 const char* Welcom_Title_Subheader = "THE SCIENCE OF WHAT'S POSSIBLE";
@@ -100,6 +119,8 @@ void ButtonSpacerPadding(float x, float y);
 
 void WelcomePage(HWND hwnd);
 void PageControllerpanel(float width = 0);
+
+//================================================================================================
 
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -136,7 +157,20 @@ static void Hook_Renderer_SwapBuffers(ImGuiViewport* viewport, void*)
     if (WGL_WindowData* data = (WGL_WindowData*)viewport->RendererUserData)
         ::SwapBuffers(data->hDC);
 }
+
 //==================================================================================================
+
+template<class T>
+T base_name(T const & path, T const & delims = "/\\")
+{
+  return path.substr(path.find_last_of(delims) + 1);
+}
+template<class T>
+T remove_extension(T const & filename)
+{
+  typename T::size_type const p(filename.find_last_of('.'));
+  return p > 0 && p != T::npos ? filename.substr(0, p) : filename;
+}
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
@@ -147,12 +181,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     wc.cbClsExtra       = 0L;
     wc.cbWndExtra       = 0L;
     wc.hInstance        = hInstance;
-    wc.hIcon            = (HICON) LoadImage(NULL, GUI_ICON, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE | LR_SHARED);
+    wc.hIcon            = (HICON) LoadImage(hInstance, GUI_ICON, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE | LR_SHARED);
     wc.hCursor          = nullptr;
     wc.hbrBackground    = nullptr;
     wc.lpszMenuName     = nullptr;
     wc.lpszClassName    = GUI_TITLE;
-    wc.hIconSm          = nullptr;
+    wc.hIconSm          = LoadIcon(NULL, GUI_ICON );;
 
     ::RegisterClassExW(&wc);
 
@@ -214,6 +248,19 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_InitForOpenGL(hwnd);
     IM_ASSERT(ImGui_ImplOpenGL3_Init());
+
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        IM_ASSERT(platform_io.Renderer_CreateWindow == NULL);
+        IM_ASSERT(platform_io.Renderer_DestroyWindow == NULL);
+        IM_ASSERT(platform_io.Renderer_SwapBuffers == NULL);
+        IM_ASSERT(platform_io.Platform_RenderWindow == NULL);
+        platform_io.Renderer_CreateWindow = Hook_Renderer_CreateWindow;
+        platform_io.Renderer_DestroyWindow = Hook_Renderer_DestroyWindow;
+        platform_io.Renderer_SwapBuffers = Hook_Renderer_SwapBuffers;
+        platform_io.Platform_RenderWindow = Hook_Platform_RenderWindow;
+    }
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     bool done = false;
@@ -294,8 +341,79 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
             ImGui::End();
 
             ImGui::Begin("CMD viewport");
-            {
+            {   
+                 struct Funcs
+                {
+                    static int MyResizeCallback(ImGuiInputTextCallbackData* data)
+                    {
+                        if (data->EventFlag == ImGuiInputTextFlags_CallbackResize)
+                        {
+                            ImVector<char>* my_str = (ImVector<char>*)data->UserData;
+                            IM_ASSERT(my_str->begin() == data->Buf);
+                            my_str->resize(data->BufSize); // NB: On resizing calls, generally data->BufSize == data->BufTextLen + 1
+                            data->Buf = my_str->begin();
+                        }
+                        return 0;
+                    }
 
+                    // Note: Because ImGui:: is a namespace you would typically add your own function into the namespace.
+                    // For example, you code may declare a function 'ImGui::InputText(const char* label, MyString* my_str)'
+                    static bool MyInputTextMultiline(const char* label, ImVector<char>* my_str, const ImVec2& size = ImVec2(0, 0), ImGuiInputTextFlags flags = 0)
+                    {
+                        IM_ASSERT((flags & ImGuiInputTextFlags_CallbackResize) == 0);
+                        return ImGui::InputTextMultiline(label, my_str->begin(), (size_t)my_str->size(), size, flags | ImGuiInputTextFlags_CallbackResize, Funcs::MyResizeCallback, (void*)my_str);
+                    }
+                };
+
+
+                static std::string bat_output;
+                
+                ImVector<char> my_str;
+                my_str.resize(bat_output.length() + 1);
+                strcpy(my_str.Data, bat_output.c_str());
+
+                if (my_str.empty())
+                    my_str.push_back(0);
+                Funcs::MyInputTextMultiline("##MyStr", &my_str, ImVec2(-FLT_MIN, ImGui::GetWindowHeight() - 48));
+               
+               // Func::InputTextMultiline("##cmd", &bat_output, ImVec2(ImGui::GetWindowWidth(), ImGui::GetWindowHeight() - 48), ImGuiInputTextFlags_ReadOnly);
+                
+                if(!selected_bat_file.empty())
+                {      
+                    char buffer[255]; 
+                    SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
+                    HANDLE stdout_rd, stdout_wr;
+                    
+                    if (CreatePipe(&stdout_rd, &stdout_wr, &sa, 0)) {
+                        STARTUPINFO si = {sizeof(STARTUPINFO)};
+                        PROCESS_INFORMATION pi;
+
+                        si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
+                        si.wShowWindow = SW_HIDE;
+                        si.hStdOutput = stdout_wr;
+                        
+                        if (CreateProcess(NULL, const_cast<char*>(selected_bat_file.c_str()), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+                            CloseHandle(stdout_wr);
+                            char buffer[4096];
+                            DWORD bytesRead;
+                            while (ReadFile(stdout_rd, buffer, sizeof(buffer), &bytesRead, NULL) != 0 && bytesRead != 0) {
+                                bat_output.append(buffer, bytesRead);
+                            }
+
+                            CloseHandle(stdout_rd);
+                            CloseHandle(pi.hProcess);
+                            CloseHandle(pi.hThread);
+                        }
+                        else {
+                            bat_output = "Error executing batch file." ;
+                        }
+                        selected_bat_file.clear();
+                    }
+                    else {
+                         bat_output = "Error creating pipe.";
+                    }
+
+                }   
             }
             ImGui::End();
 
@@ -322,7 +440,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         {
             ImGui::UpdatePlatformWindows();
             ImGui::RenderPlatformWindowsDefault();
-
             
             wglMakeCurrent(g_MainWindow.hDC, g_hRC);
         }
@@ -409,33 +526,38 @@ void ControlPanel()
     ButtonSpacerPadding(pan_col1, 15);
     if(ImGui::Button(Button1, ButtonSize))
     {
-
+        selected_bat_file = CSR_batchFile;
     }
 
     ButtonSpacerPadding(pan_col1,7);
     if(ImGui::Button(Button2, ButtonSize))
     {
-
+        selected_bat_file = PSE_batchFile;
     }
 
     ButtonSpacerPadding(pan_col1,7);
     if(ImGui::Button(Button3, ButtonSize))
     {
-
+        selected_bat_file = INO_batchFile;
     }
 
-
-    ButtonSpacerPadding(pan_col1,74);
+    ButtonSpacerPadding(pan_col1,7);
     if(ImGui::Button(Button4, ButtonSize))
     {
+        selected_bat_file = IGC_BatchFile;
+    }
 
+    ButtonSpacerPadding(pan_col1,7);
+    if(ImGui::Button(Button5, ButtonSize))
+    {
+        selected_bat_file = GVF_bathcFile;
     }
 
     //download
     ButtonSpacerPadding(pan_col1,7);
-    if(ImGui::Button(Button5, ButtonSize))
+    if(ImGui::Button(Button6, ButtonSize))
     {
-
+        selected_bat_file = DLE_batchFile;
     }
 
     ImGui::NextColumn();
@@ -452,20 +574,19 @@ void ControlPanel()
         ImGui::Image((void*)(intptr_t)image_texture, ImVec2(pan_col1 + 228.57, image_height * 0.74), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), Use_Darkmode? ImVec4(255, 255, 255, 255) : ImVec4(0, 0, 0, 255));
 
         ButtonSpacerPadding(pan_col2, 31);
-        if(ImGui::Button(Button6, ButtonSize))
+        if(ImGui::Button(Button7, ButtonSize))
         {
-
+            selected_bat_file = CFU_batchFile;
         }
         ButtonSpacerPadding(pan_col2, 7);
         if(ImGui::Button(Exit_Button, ButtonSize))
         {
-
+            ::PostQuitMessage(0);
         }
     
     ImGui::Columns(1);
 
     PageControllerpanel(pan_col2);
-    
 }   
 
 void ButtonSpacerPadding(float x, float y)
@@ -475,105 +596,52 @@ void ButtonSpacerPadding(float x, float y)
     ImGui::SameLine();
 }
 
-/*
-int CALLBACK BrowseForFolderCallback(HWND hwnd,UINT uMsg,LPARAM lp, LPARAM pData)
+//==============================================Folder Dialog================================================================
+static int CALLBACK BrowseCallbackProc(HWND hwnd,UINT uMsg, LPARAM lParam, LPARAM lpData)
 {
-    char szPath[MAX_PATH];
 
-    switch(uMsg)
+    if(uMsg == BFFM_INITIALIZED)
     {
-        case BFFM_INITIALIZED:
-            SendMessage(hwnd, BFFM_SETSELECTION, TRUE, pData);
-            break;
-
-        case BFFM_SELCHANGED: 
-            if (SHGetPathFromIDList((LPITEMIDLIST) lp ,szPath)) 
-            {
-                SendMessage(hwnd, BFFM_SETSTATUSTEXT,0,(LPARAM)szPath); 
-
-            }
-            break;
+        std::string tmp = (const char *) lpData;
+        SendMessage(hwnd, BFFM_SETSELECTION, TRUE, lpData);
     }
 
     return 0;
 }
 
-BOOL BrowseFolders(HWND hwnd, LPSTR lpszFolder, LPSTR lpszTitle)
+std::string BrowseFolder(std::string saved_path)
 {
-    BROWSEINFO bi;
-    char szPath[MAX_PATH + 1];
-    LPITEMIDLIST pidl;
-    BOOL bResult = FALSE;
+    TCHAR path[MAX_PATH];
 
-    LPMALLOC pMalloc;
+    const char * path_param = saved_path.c_str();
 
-    if (SUCCEEDED(SHGetMalloc(&pMalloc))) 
+    BROWSEINFO bi = { 0 };
+    bi.lpszTitle  = ("Browse for folder...");
+    bi.ulFlags    = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+    bi.lpfn       = BrowseCallbackProc;
+    bi.lParam     = (LPARAM) path_param;
+
+    LPITEMIDLIST pidl = SHBrowseForFolder ( &bi );
+
+    if ( pidl != 0 )
     {
-        bi.hwndOwner = hwnd;
-        bi.pidlRoot = NULL;
-        bi.pszDisplayName = NULL;
-        bi.lpszTitle = lpszTitle;
-        bi.ulFlags = BIF_STATUSTEXT; //BIF_EDITBOX 
-        bi.lpfn = BrowseForFolderCallback;
-        bi.lParam = (LPARAM)lpszFolder;
-        
-        pidl = SHBrowseForFolder(&bi);
-        if (pidl)
+        //get the name of the folder and put it in path
+        SHGetPathFromIDList ( pidl, path );
+
+        //free memory used
+        IMalloc * imalloc = 0;
+        if ( SUCCEEDED( SHGetMalloc ( &imalloc )) )
         {
-            if (SHGetPathFromIDList(pidl,szPath)) 
-            {
-                bResult = TRUE;
-                strcpy(lpszFolder, szPath);
-            }
-
-           pMalloc->Free(pidl);
-           pMalloc->Release();
-                        
+            imalloc->Free ( pidl );
+            imalloc->Release ( );
         }
+
+        return path;
     }
 
-    return bResult;
+    return "";
 }
-
-*/
-
-bool FileButton(HWND hwnd, std::string& file_path, const ImVec2& size_arg, const char* label = "File Button")
-{   
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
-    if (window->SkipItems)
-        return false;
-
-    ImGuiContext& g = *GImGui;
-    const ImGuiStyle& style = g.Style;
-    const ImGuiID id = window->GetID(label);
-
-
-    const char* default_path = "C:\\";
-    const ImVec2 label_size = ImGui::CalcTextSize(default_path, NULL, true);
-    const ImVec2 frame_size = ImGui::CalcItemSize(size_arg, ImGui::CalcItemWidth(),  label_size.y + style.FramePadding.y * 2.0f); // Arbitrary default of 8 lines high for multi-line
-    const ImVec2 total_size = ImVec2(frame_size.x + (label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 2.0f), frame_size.y);
-
-    ImGuiButtonFlags flags = ImGuiButtonFlags_MouseButtonLeft;
-    ImVec2 pos = window->DC.CursorPos;
-    if ((flags & ImGuiButtonFlags_AlignTextBaseLine) && style.FramePadding.y < window->DC.CurrLineTextBaseOffset) // Try to vertically align buttons that are smaller/have no padding so that text baseline matches (bit hacky, since it shouldn't be a flag)
-        pos.y += window->DC.CurrLineTextBaseOffset - style.FramePadding.y;
-    ImVec2 size = ImGui::CalcItemSize(size_arg, label_size.x + style.FramePadding.x * 2.0f, label_size.y + style.FramePadding.y * 2.0f);
-
-    const ImRect frame_bb(window->DC.CursorPos, window->DC.CursorPos + frame_size);
-    const ImRect total_bb(frame_bb.Min, frame_bb.Min + total_size);
-
-    bool hovered, held;
-    bool pressed = ImGui::ButtonBehavior(frame_bb, id, &hovered, &held, flags);
-
-    ImDrawList* draw_list = ImGui::GetForegroundDrawList();
-    draw_list->AddRect(frame_bb.Min, frame_bb.Max, ImGui::GetColorU32(IM_COL32(0, 0, 0, 255))); 
-    ImGui::RenderTextClipped(frame_bb.Min, frame_bb.Max, default_path, NULL, &label_size, ImVec2(0.07, 0.5), &frame_bb);
-
-    if(pressed)
-    {       
-         //BrowseFolders(hwnd, _T(default_path), _T("Choose Installation Folder"));
-    }
-}
+//===========================================================================================================================
 
 void WelcomePage(HWND hwnd)
 {   
@@ -594,14 +662,9 @@ void WelcomePage(HWND hwnd)
             bool load_success = LoadTextureFromFile(welcome_image_path, &image_texture, &image_width, &image_height);
             IM_ASSERT(load_success);
 
-            image_width = (image_width * 0.85) + 4;
-            image_height += 100;
+            ImGui::Image((void*)(intptr_t)image_texture, ImVec2(ImGui::GetColumnWidth() - 40, HEIGHT - 40));
 
-            const float pan_col2 = ImGui::GetWindowWidth() * 0.07;
-            ButtonSpacerPadding(pan_col2 + 2, 15);
-            ImGui::Image((void*)(intptr_t)image_texture, ImVec2(image_width, image_height), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), Use_Darkmode? ImVec4(255, 255, 255, 255) : ImVec4(0, 0, 0, 255));
-
-            ImGui::SetColumnWidth(-1, image_width + 140);
+            //ImGui::SetColumnWidth(-1, image_width + 140);
         }
         ImGui::NextColumn();
         {
@@ -618,12 +681,16 @@ void WelcomePage(HWND hwnd)
             ImGui::PopFont();
 
             ButtonSpacerPadding(0,100);
-            ImGui::Unindent(30);
-            FileButton( hwnd, installation_path, ImVec2(ImGui::GetColumnWidth() - 100, 40));
+            //ImGui::Unindent(2);
+
+            ImGui::InputText("##label", &installation_path, ImGuiInputTextFlags_None); 
+            ImGui::SameLine();
+            if(ImGui::Button("browse"))
+                installation_path = BrowseFolder(installation_path);
+
+            PageControllerpanel(ImGui::GetColumnWidth());
         }
         ImGui::Columns(1);
-
-        PageControllerpanel();
     }
     ImGui::End();
 }
@@ -632,14 +699,16 @@ void PageControllerpanel(float width)
 {   
     const ImVec2 ButtonSize =ImVec2(110, 40); 
 
-    ButtonSpacerPadding(0, 30);
+    ButtonSpacerPadding(0, is_in_welcomePage? 170 : 30);
     ImGui::Separator();
 
-    ButtonSpacerPadding(ImGui::GetWindowWidth() * 0.07, 15);
-    if(ImGui::Button("Cancel",ButtonSize))
-        ::PostQuitMessage(0);
-
-    const float seperation = ( is_in_welcomePage ? (ImGui::GetWindowWidth() * 0.584) + 100 : (ImGui::GetWindowWidth()  * 0.584) + width);
+    ButtonSpacerPadding(0, 15);
+    if(is_in_welcomePage)
+    {
+        if(ImGui::Button("Cancel",ButtonSize))
+            ::PostQuitMessage(0);
+    }   
+    const float seperation = ( is_in_welcomePage ? (width * 0.284) + 100 : (ImGui::GetWindowWidth()  * 0.584) + width);
     ImGui::BeginDisabled(is_in_welcomePage);
         ImGui::SameLine(seperation); 
         if(ImGui::Button("Previous",ButtonSize))
