@@ -8,4 +8,4 @@ add_subdirectory(imgui)
 
 add_executable(${PROJECT_NAME} WIN32  main.cpp)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE imgui OpenGL32.lib )
+target_link_libraries(${PROJECT_NAME} PRIVATE imgui OpenGL32.lib D3d12.lib)

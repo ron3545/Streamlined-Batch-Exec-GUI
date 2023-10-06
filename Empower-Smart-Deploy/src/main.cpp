@@ -519,7 +519,8 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 void ControlPanel()
 {
-    const float pan_col1 = ImGui::GetColumnWidth() * 0.08;
+    //const float pan_col1 = ImGui::GetColumnWidth() * 0.08;
+    const float pan_col1 = 50;
     const ImVec2 ButtonSize =ImVec2(pan_col1 + 228.57, 50); 
 
     ImGui::Columns(2, "MyColumns", false);
