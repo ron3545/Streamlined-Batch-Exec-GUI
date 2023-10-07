@@ -50,6 +50,7 @@
 #include <sstream>
 #include <stdio.h>
 #include <cmath>
+#include <string>
 
 using namespace std;
 
@@ -211,7 +212,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     bool ret = LoadTextureFromFile(main_image_path, &my_texture, &my_image_width, &my_image_height);
     IM_ASSERT(ret);
 //=========================================================================================================================
-
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     bool done = false;
     while (!done)
@@ -327,9 +327,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
                 if (my_str.empty())
                     my_str.push_back(0);
                 Funcs::MyInputTextMultiline("##MyStr", &my_str, ImVec2(-FLT_MIN, ImGui::GetWindowHeight() - 48));
-               
-               // Func::InputTextMultiline("##cmd", &bat_output, ImVec2(ImGui::GetWindowWidth(), ImGui::GetWindowHeight() - 48), ImGuiInputTextFlags_ReadOnly);
-                
+
                 if(!selected_bat_file.empty())
                 {      
                     char buffer[255]; 
@@ -360,6 +358,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
                             CloseHandle(stdout_wr);
                             char buffer[4096];
                             DWORD bytesRead;
+
+                            bat_output.clear();
                             while (ReadFile(stdout_rd, buffer, sizeof(buffer), &bytesRead, NULL) != 0 && bytesRead != 0) {
                                 bat_output.append(buffer, bytesRead);
                             }
