@@ -61,7 +61,7 @@ bool Use_Darkmode = false;
 
 const wchar_t* GUI_TITLE = L"Empower Smart Deploy";
 //===================================Loaded Icons/images==========================================
-const char* GUI_ICON            = "../../../Utils/images/esd_logo_blue_N78_icon.ico";
+wchar_t* GUI_ICON               = L"../../../Utils/images/esd_logo_blue_N78_icon.ico";
 const char* welcome_image_path  = "../../../Utils/images/empower logo.jpg"; 
 const char* main_image_path     = "../../../Utils/images/ESD_LOGO_BLUE.jpg"; 
 
@@ -142,12 +142,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     wc.cbClsExtra       = 0L;
     wc.cbWndExtra       = 0L;
     wc.hInstance        = hInstance;
-    wc.hIcon            = nullptr;//(HICON) LoadImage(hInstance, GUI_ICON, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE | LR_SHARED);
+    wc.hIcon            = (HICON) LoadImage(hInstance, GUI_ICON, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE | LR_SHARED);
     wc.hCursor          = nullptr;
     wc.hbrBackground    = nullptr;
     wc.lpszMenuName     = nullptr;
     wc.lpszClassName    = GUI_TITLE;
-    wc.hIconSm          = nullptr;//LoadIcon(NULL, GUI_ICON );
+    wc.hIconSm          = LoadIcon(NULL, GUI_ICON );
 
     ::RegisterClassExW(&wc);
 
