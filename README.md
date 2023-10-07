@@ -27,6 +27,3 @@ EXE file is located on the:
     build->src->Debug->ESD_core.exe      //for Debug version
 ```
 
-![page2](https://github.com/ron3545/ESD/assets/86136180/84dcdcc8-654d-41e4-839f-075190d2c921)
-![page 1](https://github.com/ron3545/ESD/assets/86136180/b8383461-bc00-49b2-ae25-5ce1272d48ca)
-![docking](https://github.com/ron3545/ESD/assets/86136180/9e09e019-5f89-4204-a030-d03f632e456f)
