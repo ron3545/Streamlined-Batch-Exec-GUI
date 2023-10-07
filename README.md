@@ -2,6 +2,7 @@
 ```bash
     git clone --recursive https://github.com/ron3545/Streamlined-Batch-Exec-GUI.git
     cd Streamlined-Batch-Exec-GUI
+    cd Empower-Smart-Deploy
 ```
 ## Buildig with cmake
 
