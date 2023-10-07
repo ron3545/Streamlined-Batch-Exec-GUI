@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.6)
 
 project(ESD_core LANGUAGES CXX)
 
@@ -8,4 +8,4 @@ add_subdirectory(imgui)
 
 add_executable(${PROJECT_NAME} WIN32  main.cpp)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE imgui OpenGL32.lib D3d12.lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE imgui d3d11.lib dxgi.lib d3dcompiler.lib)
