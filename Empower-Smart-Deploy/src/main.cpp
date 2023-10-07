@@ -6,6 +6,8 @@
 #pragma warning(disable : 4267)     //
 #pragma warning(disable : 4996) //
 
+#define USE_WELCOME_WINDOW false
+
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
@@ -281,7 +283,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
+#if USE_WELCOME_WINDOW
         if(!is_in_welcomePage)
+#endif
         {
             static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
 
@@ -426,9 +430,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
             }
             ImGui::End();
         }
+
+#if USE_WELCOME_WINDOW
         else
             WelcomePage(hwnd);
-
+#endif
         //render frontend window system
         ImGui::Render();
         glViewport(0, 0, g_Width, g_Height);
@@ -519,43 +525,48 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 void ControlPanel()
 {
-    //const float pan_col1 = ImGui::GetColumnWidth() * 0.08;
     const float pan_col1 = 50;
+#if USE_WELCOME_WINDOW
+    const float pan_row  = 7;
+#else
+    const float pan_row  = 15;
+#endif
     const ImVec2 ButtonSize =ImVec2(pan_col1 + 228.57, 50); 
 
     ImGui::Columns(2, "MyColumns", false);
-    ButtonSpacerPadding(pan_col1, 15);
+    ButtonSpacerPadding(pan_col1,pan_row);
+
     if(ImGui::Button(Button1, ButtonSize))
     {
         selected_bat_file = CSR_batchFile;
     }
 
-    ButtonSpacerPadding(pan_col1,7);
+    ButtonSpacerPadding(pan_col1,pan_row);
     if(ImGui::Button(Button2, ButtonSize))
     {
         selected_bat_file = PSE_batchFile;
     }
 
-    ButtonSpacerPadding(pan_col1,7);
+    ButtonSpacerPadding(pan_col1,pan_row);
     if(ImGui::Button(Button3, ButtonSize))
     {
         selected_bat_file = INO_batchFile;
     }
 
-    ButtonSpacerPadding(pan_col1,7);
+    ButtonSpacerPadding(pan_col1,pan_row);
     if(ImGui::Button(Button4, ButtonSize))
     {
         selected_bat_file = IGC_BatchFile;
     }
 
-    ButtonSpacerPadding(pan_col1,7);
+    ButtonSpacerPadding(pan_col1,pan_row);
     if(ImGui::Button(Button5, ButtonSize))
     {
         selected_bat_file = GVF_bathcFile;
     }
 
     //download
-    ButtonSpacerPadding(pan_col1,7);
+    ButtonSpacerPadding(pan_col1,pan_row);
     if(ImGui::Button(Button6, ButtonSize))
     {
         selected_bat_file = DLE_batchFile;
@@ -573,13 +584,16 @@ void ControlPanel()
         const float pan_col2 = ImGui::GetColumnWidth() * 0.08;
         ButtonSpacerPadding(pan_col2 + 2, 15);
         ImGui::Image((void*)(intptr_t)image_texture, ImVec2(pan_col1 + 228.57, image_height * 0.74), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), Use_Darkmode? ImVec4(255, 255, 255, 255) : ImVec4(0, 0, 0, 255));
-
+#if USE_WELCOME_WINDOW
         ButtonSpacerPadding(pan_col2, 31);
+#else
+        ButtonSpacerPadding(pan_col2, pan_row + 43);
+#endif
         if(ImGui::Button(Button7, ButtonSize))
         {
             selected_bat_file = CFU_batchFile;
         }
-        ButtonSpacerPadding(pan_col2, 7);
+        ButtonSpacerPadding(pan_col2, pan_row);
         if(ImGui::Button(Exit_Button, ButtonSize))
         {
             ::PostQuitMessage(0);
@@ -587,7 +601,9 @@ void ControlPanel()
     
     ImGui::Columns(1);
 
+#if USE_WELCOME_WINDOW
     PageControllerpanel(pan_col2);
+#endif
 }   
 
 void ButtonSpacerPadding(float x, float y)
