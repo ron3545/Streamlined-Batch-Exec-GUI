@@ -81,21 +81,14 @@ ImFont* ImGui_Text_Font_bld = nullptr;
 ImFont* ImGui_Text_Font     = nullptr;
 
 //============================Buttons Names and Batch File Variables=================================
-const char* CSR_batchFile = "..\\..\\..\\Utils\\batch_files\\sample.bat";                                
-const char* PSE_batchFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
-const char* INO_batchFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
-const char* IGC_BatchFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
-const char* GVF_bathcFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
-const char* DLE_batchFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
-const char* CFU_batchFile = "..\\..\\..\\Utils\\batch_files\\<add the name of the batch file in here>";  
-
-const char* Button1 = "Check System for Requirements";
-const char* Button2 = "Prep System for Empower";
-const char* Button3 = "Install .Net 3.5 Offline";
-const char* Button4 = "Install Google Chrome";
-const char* Button5 = "Get Verify Files";
-const char* Button6 = "Download Empower";
-const char* Button7 = "Check for Updates";
+const char* CSR_batchFile = "..\\..\\..\\Utils\\batch_files\\CheckSystem.bat";      const char* Button1 = "Check System for Requirements";               
+const char* PSE_batchFile = "..\\..\\..\\Utils\\batch_files\\PrepSystem.bat";       const char* Button2 = "Prep System for Empower";
+const char* INO_batchFile = "..\\..\\..\\Utils\\batch_files\\InstallNet.bat";       const char* Button3 = "Install .Net 3.5 Offline";
+const char* IGC_BatchFile = "..\\..\\..\\Utils\\batch_files\\InstallGoogle.bat";    const char* Button4 = "Install Google Chrome";
+const char* GVF_bathcFile = "..\\..\\..\\Utils\\batch_files\\GetVerifyFiles.bat";   const char* Button5 = "Get Verify Files";
+const char* DLE_batchFile = "..\\..\\..\\Utils\\batch_files\\PostCheck.bat";        const char* Button6 = "Post System Install Check";
+const char* CFU_batchFile = "..\\..\\..\\Utils\\batch_files\\Update.bat";           const char* Button7 = "Update and Download Empower";
+const char* NEC_batchFile = "..\\..\\..\\Utils\\batch_files\\NetworkCheck.bat";     const char* Button8 = "Network and Open Port Check";
 const char* Exit_Button = "Exit";                                                                                        
 
 static std::string selected_bat_file; 
@@ -111,6 +104,11 @@ static std::string selected_bat_file;
 static int my_image_width = 0;
 static int my_image_height = 0;
 static ID3D11ShaderResourceView* my_texture = NULL;
+
+static int image_width = 0;
+static int image_height = 0;
+static ID3D11ShaderResourceView* image_texture = 0;
+
 //==========================================Data===================================================
 static ID3D11Device*            g_pd3dDevice = nullptr;
 static ID3D11DeviceContext*     g_pd3dDeviceContext = nullptr;
@@ -211,6 +209,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 //==============================================LOAD IMAGE HERE============================================================
     bool ret = LoadTextureFromFile(main_image_path, &my_texture, &my_image_width, &my_image_height);
     IM_ASSERT(ret);
+
+    bool res = LoadTextureFromFile(welcome_image_path, &image_texture, &image_width, &image_height);
+    IM_ASSERT(res);
 //=========================================================================================================================
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     bool done = false;
@@ -529,15 +530,16 @@ inline void ControlPanel()
 {
     const float pan_col1 = 50;
 #if USE_WELCOME_WINDOW
-    const float pan_row  = 7;
+    const float pan_row1  = 12;
+    const float pan_row   = 7;
 #else
-    const float pan_row  = 15;
+    const float pan_row1  = 30;
+    const float pan_row   = 15;
 #endif
     const ImVec2 ButtonSize =ImVec2(pan_col1 + 228.57, 50); 
 
     ImGui::Columns(2, "MyColumns", false);
-    ButtonSpacerPadding(pan_col1,pan_row);
-
+    ButtonSpacerPadding(pan_col1,pan_row1);
     if(ImGui::Button(Button1, ButtonSize))
     {
         selected_bat_file = CSR_batchFile;
@@ -576,13 +578,18 @@ inline void ControlPanel()
 
     ImGui::NextColumn();
         const float pan_col2 = 50;
-        ButtonSpacerPadding(pan_col2 + 2, 15);
-        ImGui::Image((void*)my_texture, ImVec2(pan_col1 + 228.57, my_image_width * 0.74), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), Use_Darkmode? ImVec4(255, 255, 255, 255) : ImVec4(0, 0, 0, 255));
-#if USE_WELCOME_WINDOW
-        ButtonSpacerPadding(pan_col2, 31);
+        ButtonSpacerPadding(pan_col2 + 51, pan_row1);
+        ImGui::Image((void*)my_texture, ImVec2(my_image_height * 0.54, my_image_width * 0.54), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), Use_Darkmode? ImVec4(255, 255, 255, 255) : ImVec4(0, 0, 0, 255));
+#if USE_WELCOME_WINDOW       
+        ButtonSpacerPadding(pan_col2, 26);
 #else
-        ButtonSpacerPadding(pan_col2, pan_row + 43);
+        ButtonSpacerPadding(pan_col2, 46);
 #endif
+        if(ImGui::Button(Button8, ButtonSize))
+        {
+            selected_bat_file = NEC_batchFile;
+        }
+        ButtonSpacerPadding(pan_col2, pan_row);
         if(ImGui::Button(Button7, ButtonSize))
         {
             selected_bat_file = CFU_batchFile;
@@ -628,7 +635,7 @@ void ButtonSpacerPadding(float x, float y)
         const char * path_param = saved_path.c_str();
 
         BROWSEINFO bi = { 0 };
-        bi.lpszTitle  = ("Browse for folder...");
+        bi.lpszTitle  = L"Browse for folder...";
         bi.ulFlags    = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
         bi.lpfn       = BrowseCallbackProc;
         bi.lParam     = (LPARAM) path_param;
@@ -647,8 +654,13 @@ void ButtonSpacerPadding(float x, float y)
                 imalloc->Free ( pidl );
                 imalloc->Release ( );
             }
-
-            return path;
+#ifndef UNICODE
+     return path;
+#else
+    std::wstring wStr = path;
+    return std::string(wStr.begin(), wStr.end());
+#endif
+           
         }
 
         return "";
@@ -667,14 +679,8 @@ void ButtonSpacerPadding(float x, float y)
         {   
             ImGui::Columns(2, "FrontColmns", false);
             {
-                int image_width = 0;
-                int image_height = 0;
-                GLuint image_texture = 0;
-
-                bool load_success = LoadTextureFromFile(welcome_image_path, &image_texture, &image_width, &image_height);
-                IM_ASSERT(load_success);
-
-                ImGui::Image((void*)(intptr_t)image_texture, ImVec2(ImGui::GetColumnWidth() - 40, HEIGHT - 40));
+                
+                ImGui::Image((void*)image_texture, ImVec2(ImGui::GetColumnWidth() - 60, HEIGHT - 60));
 
                 //ImGui::SetColumnWidth(-1, image_width + 140);
             }
