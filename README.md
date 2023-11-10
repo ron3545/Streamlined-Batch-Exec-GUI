@@ -1,3 +1,7 @@
+This project aims to create a friendly UI to install a software based on the client design and description. It executes each batch files and, read their outputs and display it on the screen.
+
+![page2](https://github.com/ron3545/Streamlined-Batch-Exec-GUI/assets/86136180/599909ad-982a-4a94-8fff-f0c570f64b58)
+
 # ESD
 ```bash
     git clone --recursive https://github.com/ron3545/Streamlined-Batch-Exec-GUI.git
